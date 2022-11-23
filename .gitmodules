@@ -1,0 +1,3 @@
+[submodule "anilist_tools"]
+	path = anilist_tools
+	url = https://github.com/mannerpots/anilist_tools.git
