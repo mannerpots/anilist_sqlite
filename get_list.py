@@ -1,20 +1,33 @@
-from pip import main
 import argparse
+from enum import Enum
+from types import NoneType
+from typing import Optional
+
 from anilist_tools.upcoming_sequels import get_user_id_by_name
 from anilist_tools.utils import depaginated_request
 
-STATUSES = ['CURRENT', 'PLANNING', 'COMPLETED', 'DROPPED', 'PAUSED', 'REPEATING']
+class MediaType(Enum):
+    MatchAll = 'ALL'
+    Anime = 'ANIME'
+    Manga = 'MANGA'
 
-def get_user_media(user_id, status='COMPLETED', type='ANIME'):
-    """Given an AniList user ID, fetch the user's anime list, returning a list of shows and details."""
-    query = '''
+class MediaStatus(Enum):
+    MatchAll = 'ALL'
+    Watching = 'CURRENT'
+    Planning = 'PLANNING'
+    Completed = 'COMPLETED'
+    Dropped = 'DROPPED'
+    Paused = 'PAUSED'
+    Rewatching = 'REPEATING'
+
+QUERY_SPECIFIC_TYPE_AND_STATUS = '''
 query ($userId: Int, $type: MediaType, $status: MediaListStatus, $page: Int, $perPage: Int) {
     Page (page: $page, perPage: $perPage) {
         pageInfo {
             hasNextPage
         }
         # Note that a MediaList object is actually a single list entry, hence the need for pagination
-        mediaList(userId: $userId,  type: $type, status: $status, sort: SCORE_DESC) {
+        mediaList(userId: $userId, type: $type, status: $status, sort: MEDIA_ID) {
             media {
                 id
                 title {
@@ -47,8 +60,143 @@ query ($userId: Int, $type: MediaType, $status: MediaListStatus, $page: Int, $pe
     }
 }'''
 
-    return [list_entry for list_entry in depaginated_request(query=query,
-                                                                      variables={'userId': user_id, 'type': type, 'status': status})]
+QUERY_SPECIFIC_TYPE = '''
+query ($userId: Int, $type: MediaType, $page: Int, $perPage: Int) {
+    Page (page: $page, perPage: $perPage) {
+        pageInfo {
+            hasNextPage
+        }
+        # Note that a MediaList object is actually a single list entry, hence the need for pagination
+        mediaList(userId: $userId, type: $type, sort: MEDIA_ID) {
+            media {
+                id
+                title {
+                    english
+                    romaji
+                }
+                type
+                format
+                episodes
+            }
+            score
+            status
+            progress
+            repeat
+            startedAt {
+                year
+                month
+                day
+            }
+            completedAt {
+                year
+                month
+                day
+            }
+            updatedAt
+            notes
+            hiddenFromStatusLists
+            customLists
+        }
+    }
+}'''
+
+QUERY_SPECIFIC_STATUS = '''
+query ($userId: Int, $status: MediaListStatus, $page: Int, $perPage: Int) {
+    Page (page: $page, perPage: $perPage) {
+        pageInfo {
+            hasNextPage
+        }
+        # Note that a MediaList object is actually a single list entry, hence the need for pagination
+        mediaList(userId: $userId, status: $status, sort: MEDIA_ID) {
+            media {
+                id
+                title {
+                    english
+                    romaji
+                }
+                type
+                format
+                episodes
+            }
+            score
+            status
+            progress
+            repeat
+            startedAt {
+                year
+                month
+                day
+            }
+            completedAt {
+                year
+                month
+                day
+            }
+            updatedAt
+            notes
+            hiddenFromStatusLists
+            customLists
+        }
+    }
+}'''
+
+QUERY_RETURN_ALL = '''
+query ($userId: Int, $page: Int, $perPage: Int) {
+    Page (page: $page, perPage: $perPage) {
+        pageInfo {
+            hasNextPage
+        }
+        # Note that a MediaList object is actually a single list entry, hence the need for pagination
+        mediaList(userId: $userId, sort: MEDIA_ID) {
+            media {
+                id
+                title {
+                    english
+                    romaji
+                }
+                type
+                format
+                episodes
+            }
+            score
+            status
+            progress
+            repeat
+            startedAt {
+                year
+                month
+                day
+            }
+            completedAt {
+                year
+                month
+                day
+            }
+            updatedAt
+            notes
+            hiddenFromStatusLists
+            customLists
+        }
+    }
+}'''
+
+
+def get_user_media(user_id: int, 
+                   status: Optional[MediaStatus]=MediaStatus.MatchAll, 
+                   type: Optional[MediaType]=MediaType.MatchAll) -> list[dict]:
+    """Given an AniList user ID, fetch the user's anime list, returning a list of shows and details."""
+    if status is not MediaStatus.MatchAll and type is not MediaType.MatchAll:
+        return [list_entry for list_entry in depaginated_request(query=QUERY_SPECIFIC_TYPE_AND_STATUS,
+                                                                 variables={'userId': user_id, 'type': type.value, 'status': status.value})]
+    elif status is not MediaStatus.MatchAll:
+        return [list_entry for list_entry in depaginated_request(query=QUERY_SPECIFIC_STATUS,
+                                                                 variables={'userId': user_id, 'status': status.value})]
+    elif type is not MediaType.MatchAll:
+        return [list_entry for list_entry in depaginated_request(query=QUERY_SPECIFIC_TYPE,
+                                                                 variables={'userId': user_id, 'type': type.value})]
+    else:
+        return [list_entry for list_entry in depaginated_request(query=QUERY_RETURN_ALL,
+                                                                 variables={'userId': user_id})]
 
 def main(username: str):
     user_id = get_user_id_by_name(username)
