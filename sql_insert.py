@@ -9,18 +9,17 @@ LIST_DATA_INSERT = '''INSERT or IGNORE
 
 CUSTOM_LISTS_INSERT = '''INSERT or IGNORE
                             INTO "main"."CustomListMembershipHistorical" 
-                            ("ID", "UpdatedAt", "CustomList", "IsMember") 
-                            VALUES (?, datetime(?, 'unixepoch'), ?, ?);'''
+                            ("ID", "MediaType", "UpdatedAt", "CustomList", "IsMember") 
+                            VALUES (?, ?, datetime(?, 'unixepoch'), ?, ?);'''
 
 def insert_custom_lists(cursor: sqlite3.Connection,
-                        id: int,
-                        updated_at: int,
-                        custom_lists_membership: dict[str, bool]) -> None:
+                        media_info: dict) -> None:
     """Inserts an entry into the CustomListMembershipHistorical table for each pair in the given dictionary."""
-    for list, is_memeber in custom_lists_membership.items():
+    for list, is_memeber in media_info['customLists'].items():
         cursor.execute(CUSTOM_LISTS_INSERT, (
-            id,
-            updated_at,
+            media_info['media']['id'],
+            media_info['media']['type'],
+            media_info['updatedAt'],
             list,
             is_memeber
             ))
@@ -53,4 +52,4 @@ def insert_media(cursor: sqlite3.Connection, media_info: dict):
         ))
 
     if media_info['customLists'] is not None:
-        insert_custom_lists(cursor, media_info['media']['id'], media_info['updatedAt'], media_info['customLists'])
+        insert_custom_lists(cursor, media_info)

@@ -182,34 +182,42 @@ query ($userId: Int, $page: Int, $perPage: Int) {
 
 
 def get_user_media(user_id: int, 
-                   status: Optional[MediaStatus]=MediaStatus.MatchAll, 
-                   type: Optional[MediaType]=MediaType.MatchAll) -> list[dict]:
+                   status: Optional[MediaStatus]=None, 
+                   type: Optional[MediaType]=None) -> list[dict]:
     """Given an AniList user ID, fetch the user's anime list, returning a list of shows and details."""
-    if status is not MediaStatus.MatchAll and type is not MediaType.MatchAll:
+    if status is not None and type is not None:
         return [list_entry for list_entry in depaginated_request(query=QUERY_SPECIFIC_TYPE_AND_STATUS,
                                                                  variables={'userId': user_id, 'type': type.value, 'status': status.value})]
-    elif status is not MediaStatus.MatchAll:
+    elif status is not None:
         return [list_entry for list_entry in depaginated_request(query=QUERY_SPECIFIC_STATUS,
                                                                  variables={'userId': user_id, 'status': status.value})]
-    elif type is not MediaType.MatchAll:
+    elif type is not None:
         return [list_entry for list_entry in depaginated_request(query=QUERY_SPECIFIC_TYPE,
                                                                  variables={'userId': user_id, 'type': type.value})]
     else:
         return [list_entry for list_entry in depaginated_request(query=QUERY_RETURN_ALL,
                                                                  variables={'userId': user_id})]
 
-def main(username: str):
+def main(username: str, file: str):
     user_id = get_user_id_by_name(username)
     user_media_list = get_user_media(user_id)
-    for entry in user_media_list:
-        print(entry)
+    user_media_list.sort(key=lambda x: float(x['score']), reverse=True)
+    if file:
+        with open(file, 'w', encoding='utf-8') as f:
+            for entry in user_media_list:
+                f.write(f"{entry['media']['title']['romaji']} ({entry['media']['format']}): {entry['score']}\n")
+    else:
+        for entry in user_media_list:
+            print(f"{entry['media']['title']['romaji']} ({entry['media']['format']}): {entry['score']}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Given an anilist username, print all the shows they have completed on Anilist.",
         formatter_class=argparse.RawTextHelpFormatter)  # Preserves newlines in help text
-    parser.add_argument('-u', '--username', required=False, default='mannerpots',
+    parser.add_argument('-u', '--username', required=True,
                         help="User whose list should be checked.")
+    parser.add_argument('-f', '--file', required=False, default=None,
+                        help="File to write the output to.")
     args = parser.parse_args()
 
-    main(args.username)
+    main(args.username, args.file)

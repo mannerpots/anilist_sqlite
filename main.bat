@@ -1,0 +1,1 @@
+.venv_anilist_sqlite\Scripts\activate && python main.py --username mannerpots --database anilist.db
